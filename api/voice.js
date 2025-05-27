@@ -1,9 +1,10 @@
 export default async function handler(req, res) {
   const { text } = req.body;
   const apiKey = process.env.OPENAI_API_KEY;
+  const projectId = process.env.OPENAI_PROJECT_ID;
 
-  if (!apiKey) {
-    return res.status(500).json({ reply: "API key belum dikonfigurasi di environment Vercel." });
+  if (!apiKey || !projectId) {
+    return res.status(500).json({ reply: "API key atau Project ID belum dikonfigurasi di environment Vercel." });
   }
 
   if (!text || typeof text !== 'string') {
@@ -15,7 +16,8 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "OpenAI-Project": projectId // <- ini wajib untuk API key proj
       },
       body: JSON.stringify({
         model: "gpt-3.5-turbo",
