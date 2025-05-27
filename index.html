@@ -39,7 +39,7 @@
     const responseEl = document.getElementById('response');
 
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'en-US';
+    recognition.lang = 'id-ID';
     recognition.interimResults = false;
 
 speakBtn.addEventListener('click', () => {
@@ -66,7 +66,7 @@ recognition.onresult = async (event) => {
     responseEl.textContent = reply;
 
     const utterance = new SpeechSynthesisUtterance(reply);
-    utterance.lang = 'en-US';
+    utterance.lang = 'id-ID';
     utterance.rate = 1;
     utterance.pitch = 1;
     utterance.volume = 1;
