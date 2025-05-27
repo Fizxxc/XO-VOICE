@@ -1,45 +1,47 @@
 export default async function handler(req, res) {
-  const { text } = req.body;
-  const apiKey = process.env.OPENAI_API_KEY;
-  const projectId = process.env.OPENAI_PROJECT_ID;
-
-  if (!apiKey || !projectId) {
-    return res.status(500).json({ reply: "API key atau Project ID belum dikonfigurasi di environment Vercel." });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!text || typeof text !== 'string') {
-    return res.status(400).json({ reply: "Permintaan tidak valid. Harap kirimkan input suara yang benar." });
+  const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ error: 'No input text provided' });
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "OpenAI-Project": projectId // <- ini wajib untuk API key proj
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Project': process.env.OPENAI_PROJECT_ID // opsional, jika kamu menggunakannya
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini", // gunakan model 4o-mini
         messages: [
-          { role: "system", content: "Kamu adalah XO AI V2.1, asisten pintar yang merespons dengan suara ramah dan informatif." },
+          { role: "system", content: "You are XO AI, a friendly and helpful assistant." },
           { role: "user", content: text }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 200
       })
     });
 
-    const result = await response.json();
+    const data = await openaiRes.json();
 
-    if (!response.ok || !result.choices) {
-      throw new Error(result.error?.message || "Gagal mendapatkan balasan dari OpenAI.");
+    if (!openaiRes.ok) {
+      console.error("OpenAI Error:", data);
+      return res.status(500).json({
+        error: data.error?.message || "Terjadi kesalahan saat memproses jawaban XO AI."
+      });
     }
 
-    const reply = result.choices[0].message.content.trim();
-    res.status(200).json({ reply });
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    return res.status(200).json({ reply });
 
-  } catch (error) {
-    console.error("OpenAI Error:", error);
-    res.status(500).json({ reply: "Terjadi kesalahan saat memproses jawaban XO AI." });
+  } catch (err) {
+    console.error("Server Error:", err);
+    return res.status(500).json({ error: "Gagal terhubung ke XO AI." });
   }
 }
