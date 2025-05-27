@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>XO AI V2.1</title>
-  <script defer src="/script.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     :root {
@@ -19,8 +18,9 @@
     }
   </style>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
-  <div class="text-center">
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+  <div class="text-center max-w-xl w-full">
+    <!-- Logo & Judul -->
     <div class="mb-4 flex justify-center">
       <div class="text-[50px] text-purple-400 pulse">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-icon lucide-circle">
@@ -30,8 +30,14 @@
     </div>
     <h1 class="text-4xl font-bold text-purple-300">XO AI V2.1</h1>
     <p class="text-gray-300 mt-2">Speak to interact with your AI Assistant</p>
-    <button id="speakBtn" class="mt-6 px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-full text-white font-semibold transition-transform transform hover:scale-105">Start Talking</button>
-    <p id="response" class="mt-4 text-lg text-purple-200"></p>
+
+    <!-- Tombol -->
+    <button id="speakBtn" class="mt-6 px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-full text-white font-semibold transition-transform transform hover:scale-105">
+      Start Talking
+    </button>
+
+    <!-- Box Respons -->
+    <div id="response" class="mt-6 bg-gray-800 p-4 rounded-xl text-left text-purple-200 text-base leading-relaxed max-h-96 overflow-y-auto shadow-inner space-y-3 hidden"></div>
   </div>
 
   <script>
@@ -42,55 +48,62 @@
     recognition.lang = 'id-ID';
     recognition.interimResults = false;
 
-speakBtn.addEventListener('click', () => {
-  responseEl.textContent = "Listening...";
-  speakBtn.disabled = true;
-  speakBtn.textContent = "Listening...";
-  recognition.start();
-});
-
-recognition.onresult = async (event) => {
-  const text = event.results[0][0].transcript;
-  responseEl.textContent = `You said: ${text}`;
-
-  try {
-    const res = await fetch('/api/voice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+    speakBtn.addEventListener('click', () => {
+      responseEl.classList.remove('hidden');
+      responseEl.innerHTML = "<p class='text-gray-400'>🎤 Listening...</p>";
+      speakBtn.disabled = true;
+      speakBtn.textContent = "Listening...";
+      recognition.start();
     });
 
-    const data = await res.json();
-    const reply = data.reply || "XO AI tidak bisa menjawab.";
+    recognition.onresult = async (event) => {
+      const text = event.results[0][0].transcript;
+      responseEl.innerHTML = `<p class="text-gray-400">🗣️ You said: <strong>${text}</strong></p>`;
 
-    responseEl.textContent = reply;
+      try {
+        const res = await fetch('/api/voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
 
-    const utterance = new SpeechSynthesisUtterance(reply);
-    utterance.lang = 'id-ID';
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+        const data = await res.json();
+        const reply = data.reply || "XO AI tidak bisa menjawab.";
 
-    utterance.onend = () => {
+        // Format menjadi paragraf rapi
+        const formatted = reply
+          .split(/\n+/)
+          .map(p => `<p>${p.trim()}</p>`)
+          .join("");
+
+        responseEl.innerHTML += `<div class="pt-4 border-t border-gray-600">${formatted}</div>`;
+
+        // TTS
+        const utterance = new SpeechSynthesisUtterance(reply);
+        utterance.lang = 'id-ID';
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        utterance.onend = () => {
+          speakBtn.disabled = false;
+          speakBtn.textContent = "Start Talking";
+        };
+
+        speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        responseEl.innerHTML = `<p class="text-red-400 mt-2">❌ Gagal menerima respon dari XO AI.</p>`;
+        speakBtn.disabled = false;
+        speakBtn.textContent = "Start Talking";
+      }
+    };
+
+    recognition.onerror = (err) => {
+      responseEl.innerHTML = `<p class="text-red-400">Error: ${err.error}</p>`;
       speakBtn.disabled = false;
       speakBtn.textContent = "Start Talking";
     };
-
-    speechSynthesis.speak(utterance);
-  } catch (error) {
-    console.error("Fetch error:", error);
-    responseEl.textContent = "Error getting response from XO AI.";
-    speakBtn.disabled = false;
-    speakBtn.textContent = "Start Talking";
-  }
-};
-
-recognition.onerror = (err) => {
-  responseEl.textContent = `Error: ${err.error}`;
-  speakBtn.disabled = false;
-  speakBtn.textContent = "Start Talking";
-};
-
   </script>
 </body>
 </html>
