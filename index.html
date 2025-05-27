@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XO AI V2.1</title>
+  <script defer src="/script.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-purple: #a076f9;
+    }
+    .pulse {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.6; }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center h-screen">
+  <div class="text-center">
+    <div class="mb-4 flex justify-center">
+      <div class="text-[50px] text-purple-400 pulse">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-icon lucide-circle">
+          <circle cx="12" cy="12" r="10"/>
+        </svg>
+      </div>
+    </div>
+    <h1 class="text-4xl font-bold text-purple-300">XO AI V2.1</h1>
+    <p class="text-gray-300 mt-2">Speak to interact with your AI Assistant</p>
+    <button id="speakBtn" class="mt-6 px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-full text-white font-semibold transition-transform transform hover:scale-105">Start Talking</button>
+    <p id="response" class="mt-4 text-lg text-purple-200"></p>
+  </div>
+
+  <script>
+    const speakBtn = document.getElementById('speakBtn');
+    const responseEl = document.getElementById('response');
+
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    speakBtn.addEventListener('click', () => {
+      responseEl.textContent = "Listening...";
+      recognition.start();
+    });
+
+    recognition.onresult = async (event) => {
+      const text = event.results[0][0].transcript;
+      responseEl.textContent = `You said: ${text}`;
+
+      const res = await fetch('/api/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      responseEl.textContent = data.reply || "No response from XO AI.";
+    };
+
+    recognition.onerror = (err) => {
+      responseEl.textContent = `Error: ${err.error}`;
+    };
+  </script>
+</body>
+</html>
