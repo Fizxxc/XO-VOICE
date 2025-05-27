@@ -35,50 +35,62 @@
   </div>
 
   <script>
-  const speakBtn = document.getElementById('speakBtn');
-  const responseEl = document.getElementById('response');
+    const speakBtn = document.getElementById('speakBtn');
+    const responseEl = document.getElementById('response');
 
-  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-  recognition.lang = 'en-US';
-  recognition.interimResults = false;
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
 
-  speakBtn.addEventListener('click', () => {
-    responseEl.textContent = "Listening...";
-    recognition.start();
-  });
+speakBtn.addEventListener('click', () => {
+  responseEl.textContent = "Listening...";
+  speakBtn.disabled = true;
+  speakBtn.textContent = "Listening...";
+  recognition.start();
+});
 
-  recognition.onresult = async (event) => {
-    const text = event.results[0][0].transcript;
-    responseEl.textContent = `You said: ${text}`;
+recognition.onresult = async (event) => {
+  const text = event.results[0][0].transcript;
+  responseEl.textContent = `You said: ${text}`;
 
-    try {
-      const res = await fetch('/api/voice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
+  try {
+    const res = await fetch('/api/voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
 
-      const data = await res.json();
-      const reply = data.reply || "No response from XO AI.";
+    const data = await res.json();
+    const reply = data.reply || "XO AI tidak bisa menjawab.";
 
-      responseEl.textContent = reply;
+    responseEl.textContent = reply;
 
-      // 🔊 Speak the response with TTS
-      const utterance = new SpeechSynthesisUtterance(reply);
-      utterance.lang = 'id-ID'; // Ganti ke 'id-ID' jika ingin suara Indonesia
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      speechSynthesis.speak(utterance);
+    const utterance = new SpeechSynthesisUtterance(reply);
+    utterance.lang = 'en-US';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
 
-    } catch (error) {
-      responseEl.textContent = "Error getting response from XO AI.";
-    }
-  };
+    utterance.onend = () => {
+      speakBtn.disabled = false;
+      speakBtn.textContent = "Start Talking";
+    };
 
-  recognition.onerror = (err) => {
-    responseEl.textContent = `Error: ${err.error}`;
-  };
-</script>
+    speechSynthesis.speak(utterance);
+  } catch (error) {
+    console.error("Fetch error:", error);
+    responseEl.textContent = "Error getting response from XO AI.";
+    speakBtn.disabled = false;
+    speakBtn.textContent = "Start Talking";
+  }
+};
+
+recognition.onerror = (err) => {
+  responseEl.textContent = `Error: ${err.error}`;
+  speakBtn.disabled = false;
+  speakBtn.textContent = "Start Talking";
+};
+
+  </script>
 </body>
 </html>
