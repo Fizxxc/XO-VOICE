@@ -1,70 +1,79 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Metode tidak diizinkan' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { text } = req.body;
 
-  if (!text || typeof text !== 'string') {
-    return res.status(400).json({ error: 'Teks input tidak valid' });
+  if (!text) {
+    return res.status(400).json({ error: 'No input text provided' });
   }
 
   try {
-    // Langkah 1: Dapatkan respons dari GPT
+    // 1. Minta jawaban teks dari GPT
     const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
-        'OpenAI-Project': process.env.OPENAI_PROJECT_ID
+        ...(process.env.OPENAI_PROJECT_ID && {
+          'OpenAI-Project': process.env.OPENAI_PROJECT_ID
+        })
       },
       body: JSON.stringify({
-        model: "gpt-4o", // atau "gpt-4o-mini"
+        model: "gpt-4o", // atau gpt-4o-mini jika ingin versi lebih ringan
         messages: [
-          { role: "system", content: "Kamu adalah XO AI, asisten cerdas yang ramah dan menjawab dalam bahasa Indonesia." },
+          { role: "system", content: "You are XO AI, a friendly and helpful assistant." },
           { role: "user", content: text }
         ],
         temperature: 0.7,
-        max_tokens: 300
+        max_tokens: 200
       })
     });
 
     const chatData = await chatRes.json();
 
-    if (!chatRes.ok || !chatData.choices?.length) {
+    if (!chatRes.ok) {
       console.error("OpenAI Chat Error:", chatData);
-      return res.status(500).json({ error: chatData.error?.message || 'Gagal mendapatkan jawaban dari XO AI.' });
+      return res.status(500).json({ error: chatData.error?.message || 'Gagal mendapatkan respon dari XO AI.' });
     }
 
-    const reply = chatData.choices[0].message.content.trim();
+    const reply = chatData.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      return res.status(500).json({ error: "XO AI tidak memberikan jawaban." });
+    }
 
-    // Langkah 2: Ubah jawaban menjadi audio menggunakan TTS
+    // 2. Buat suara dari balasan GPT
     const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...(process.env.OPENAI_PROJECT_ID && {
+          'OpenAI-Project': process.env.OPENAI_PROJECT_ID
+        })
       },
       body: JSON.stringify({
         model: "tts-1", // atau "tts-1-hd"
         input: reply,
-        voice: "nova" // bisa diubah ke shimmer, echo, alloy, fable, onyx
+        voice: "nova" // bisa juga shimmer, echo, alloy, fable
       })
     });
 
     if (!ttsRes.ok) {
-      const err = await ttsRes.json();
-      console.error("OpenAI TTS Error:", err);
-      return res.status(500).json({ error: err.error?.message || "Gagal menghasilkan suara dari XO AI." });
+      const ttsErr = await ttsRes.json();
+      console.error("TTS Error:", ttsErr);
+      return res.status(500).json({ error: ttsErr.error?.message || "Gagal menghasilkan suara dari XO AI." });
     }
 
-    const audioBuffer = await ttsRes.arrayBuffer();
-    const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+    const arrayBuffer = await ttsRes.arrayBuffer();
+    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+    const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
 
-    res.status(200).json({ reply, audio: `data:audio/mpeg;base64,${audioBase64}` });
+    return res.status(200).json({ reply, audio: audioDataUrl });
 
   } catch (err) {
-    console.error("Server Error:", err);
-    res.status(500).json({ error: 'Terjadi kesalahan pada server XO AI.' });
+    console.error("Unexpected Server Error:", err);
+    return res.status(500).json({ error: "Terjadi kesalahan internal di server." });
   }
 }
