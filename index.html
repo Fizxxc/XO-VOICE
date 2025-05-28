@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>XO AI V2.1</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
@@ -23,7 +23,7 @@
     <!-- Logo & Judul -->
     <div class="mb-4 flex justify-center">
       <div class="text-[50px] text-purple-400 pulse">
-        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-icon lucide-circle">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
         </svg>
       </div>
@@ -57,43 +57,40 @@
     });
 
     recognition.onresult = async (event) => {
-      const text = event.results[0][0].transcript;
-      responseEl.innerHTML = `<p class="text-gray-400">🗣️ You said: <strong>${text}</strong></p>`;
+      const userText = event.results[0][0].transcript;
+      responseEl.innerHTML = `<p class="text-gray-400">🗣️ You said: <strong>${userText}</strong></p>`;
 
       try {
         const res = await fetch('/api/voice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text: userText })
         });
 
-        const data = await res.json();
-        const reply = data.reply || "XO AI tidak bisa menjawab.";
+        const reader = res.body.getReader();
+        let chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
 
-        // Format menjadi paragraf rapi
-        const formatted = reply
-          .split(/\n+/)
-          .map(p => `<p>${p.trim()}</p>`)
-          .join("");
-
+        // Put transcript if available
+        const replyText = res.headers.get("X-Reply") || "XO AI menjawab.";
+        const formatted = replyText.split(/\n+/).map(p => `<p>${p.trim()}</p>`).join("");
         responseEl.innerHTML += `<div class="pt-4 border-t border-gray-600">${formatted}</div>`;
 
-        // TTS
-        const utterance = new SpeechSynthesisUtterance(reply);
-        utterance.lang = 'id-ID';
-        utterance.rate = 1;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-
-        utterance.onend = () => {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+        audio.onended = () => {
           speakBtn.disabled = false;
           speakBtn.textContent = "Start Talking";
         };
-
-        speechSynthesis.speak(utterance);
       } catch (error) {
         console.error("Fetch error:", error);
-        responseEl.innerHTML = `<p class="text-red-400 mt-2">❌ Gagal menerima respon dari XO AI.</p>`;
+        responseEl.innerHTML += `<p class="text-red-400 mt-2">❌ Gagal menerima respon dari XO AI.</p>`;
         speakBtn.disabled = false;
         speakBtn.textContent = "Start Talking";
       }
